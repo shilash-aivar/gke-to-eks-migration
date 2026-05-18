@@ -165,6 +165,158 @@ tasks:
       - task: vpc:destroy
       - task: bootstrap-iam:destroy
 
+  # ── Azure Bootstrap ──────────────────────────────────────────
+  az:bootstrap:init:
+    desc: "Init Azure bootstrap (storage account for tfstate)"
+    dir: "{{.TF_AZURE_DIR}}/bootstrap"
+    cmds:
+      - terraform init
+
+  az:bootstrap:plan:
+    desc: "Plan Azure bootstrap"
+    dir: "{{.TF_AZURE_DIR}}/bootstrap"
+    cmds:
+      - terraform plan
+
+  az:bootstrap:apply:
+    desc: "Apply Azure bootstrap"
+    dir: "{{.TF_AZURE_DIR}}/bootstrap"
+    cmds:
+      - terraform apply -auto-approve
+
+  az:bootstrap:destroy:
+    desc: "Destroy Azure bootstrap"
+    dir: "{{.TF_AZURE_DIR}}/bootstrap"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── Azure Bootstrap IAM ──────────────────────────────────────
+  az:bootstrap-iam:init:
+    desc: "Init Azure bootstrap-iam (Velero workload identity)"
+    dir: "{{.TF_AZURE_DIR}}/bootstrap-iam"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl
+
+  az:bootstrap-iam:plan:
+    desc: "Plan Azure bootstrap-iam"
+    dir: "{{.TF_AZURE_DIR}}/bootstrap-iam"
+    cmds:
+      - terraform plan
+
+  az:bootstrap-iam:apply:
+    desc: "Apply Azure bootstrap-iam"
+    dir: "{{.TF_AZURE_DIR}}/bootstrap-iam"
+    cmds:
+      - terraform apply -auto-approve
+
+  az:bootstrap-iam:destroy:
+    desc: "Destroy Azure bootstrap-iam"
+    dir: "{{.TF_AZURE_DIR}}/bootstrap-iam"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── Azure VNet ───────────────────────────────────────────────
+  az:vnet:init:
+    desc: "Init Azure VNet module"
+    dir: "{{.TF_AZURE_DIR}}/vnet"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl
+
+  az:vnet:plan:
+    desc: "Plan Azure VNet module"
+    dir: "{{.TF_AZURE_DIR}}/vnet"
+    cmds:
+      - terraform plan
+
+  az:vnet:apply:
+    desc: "Apply Azure VNet module"
+    dir: "{{.TF_AZURE_DIR}}/vnet"
+    cmds:
+      - terraform apply -auto-approve
+
+  az:vnet:destroy:
+    desc: "Destroy Azure VNet module"
+    dir: "{{.TF_AZURE_DIR}}/vnet"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── Azure AKS ────────────────────────────────────────────────
+  az:aks:init:
+    desc: "Init Azure AKS module"
+    dir: "{{.TF_AZURE_DIR}}/aks"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl
+
+  az:aks:plan:
+    desc: "Plan Azure AKS module"
+    dir: "{{.TF_AZURE_DIR}}/aks"
+    cmds:
+      - terraform plan
+
+  az:aks:apply:
+    desc: "Apply Azure AKS module"
+    dir: "{{.TF_AZURE_DIR}}/aks"
+    cmds:
+      - terraform apply -auto-approve
+
+  az:aks:destroy:
+    desc: "Destroy Azure AKS module"
+    dir: "{{.TF_AZURE_DIR}}/aks"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── Azure Storage ────────────────────────────────────────────
+  az:storage:init:
+    desc: "Init Azure storage module"
+    dir: "{{.TF_AZURE_DIR}}/storage"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl
+
+  az:storage:plan:
+    desc: "Plan Azure storage module"
+    dir: "{{.TF_AZURE_DIR}}/storage"
+    cmds:
+      - terraform plan
+
+  az:storage:apply:
+    desc: "Apply Azure storage module"
+    dir: "{{.TF_AZURE_DIR}}/storage"
+    cmds:
+      - terraform apply -auto-approve
+
+  az:storage:destroy:
+    desc: "Destroy Azure storage module"
+    dir: "{{.TF_AZURE_DIR}}/storage"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── Azure full stack ─────────────────────────────────────────
+  az:init-all:
+    desc: "Init all Azure modules in order"
+    cmds:
+      - task: az:bootstrap:init
+      - task: az:bootstrap-iam:init
+      - task: az:vnet:init
+      - task: az:storage:init
+      - task: az:aks:init
+
+  az:apply-all:
+    desc: "Apply all Azure modules in order"
+    cmds:
+      - task: az:bootstrap:apply
+      - task: az:bootstrap-iam:apply
+      - task: az:vnet:apply
+      - task: az:storage:apply
+      - task: az:aks:apply
+
+  az:destroy-all:
+    desc: "Destroy all Azure modules in reverse order"
+    cmds:
+      - task: az:aks:destroy
+      - task: az:storage:destroy
+      - task: az:vnet:destroy
+      - task: az:bootstrap-iam:destroy
+
   # ── Helm ─────────────────────────────────────────────────────
   helm:velero:install:
     desc: "Install Velero on EKS"
