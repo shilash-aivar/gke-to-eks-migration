@@ -1,0 +1,75 @@
+image:
+  repository: velero/velero
+  tag: v1.18.0
+  pullPolicy: IfNotPresent
+
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.11.0
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: migration-bucket-for-aivar-shilash        # ← same bucket as GKE
+      default: true
+      config:
+        region: us-east-1
+
+  volumeSnapshotLocation:
+    - name: default
+      provider: aws
+      config:
+        region: us-east-1
+
+  defaultVolumesToFsBackup: true
+  uploaderType: kopia
+
+credentials:
+  useSecret: true
+  name: velero-credentials
+  secretContents:
+    cloud: |
+      [default]
+      aws_access_key_id=ACCESS_KEY
+      aws_secret_access_key=SECRET_ACCESS_KEY 
+
+deployNodeAgent: true
+
+nodeAgent:
+  podVolumePath: /var/lib/kubelet/pods
+  privileged: false
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 256Mi
+
+# Map GKE storage class → EKS storage class
+configMaps:
+  change-storage-class:
+    labels:
+      velero.io/plugin-config: ""
+      velero.io/change-storage-class: RestoreItemAction
+    data:
+      standard: gp2
+      standard-rwo: gp2                  # ← GKE Autopilot uses this one
+      premium-rwo: gp3                   # ← if you have SSD PVCs on GKE
+
+metrics:
+  enabled: true
+  scrapeInterval: 30s
