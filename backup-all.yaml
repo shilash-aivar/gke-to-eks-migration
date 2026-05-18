@@ -1,0 +1,54 @@
+# Backup databases + Loki/monitoring stack (AKS source → EKS restore)
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: poc-full-migration
+  namespace: velero
+spec:
+  includedNamespaces:
+    - databases
+    - monitoring
+  defaultVolumesToFsBackup: true
+  storageLocation: default
+  ttl: 720h
+  hooks:
+    resources:
+      - name: postgres-checkpoint
+        includedNamespaces:
+          - databases
+        labelSelector:
+          matchLabels:
+            app: postgres
+        pre:
+          - exec:
+              container: postgres
+              command:
+                - /bin/sh
+                - -c
+                - psql -U appuser -d appdb -c CHECKPOINT
+              onError: Fail
+              timeout: 60s
+      - name: mysql-flush
+        includedNamespaces:
+          - databases
+        labelSelector:
+          matchLabels:
+            app: mysql
+        pre:
+          - exec:
+              container: mysql
+              command:
+                - /bin/sh
+                - -c
+                - mysql -u root -prootpassword -e "FLUSH TABLES WITH READ LOCK"
+              onError: Fail
+              timeout: 60s
+        post:
+          - exec:
+              container: mysql
+              command:
+                - /bin/sh
+                - -c
+                - mysql -u root -prootpassword -e "UNLOCK TABLES"
+              onError: Continue
+              timeout: 60s

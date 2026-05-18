@@ -1,0 +1,29 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: databases-migration
+  namespace: velero
+spec:
+  backupName: databases-migration   # matches the one-off backup name
+  includedNamespaces:
+    - databases
+  restorePVs: true
+  # Storage class mapping is handled by the change-storage-class ConfigMap
+  # installed via values-eks.yaml:
+  #   standard-rwo (GKE) / managed-csi (AKS) → gp2 (EKS)
+  #   premium-rwo (GKE) / managed-csi-premium (AKS) → gp3 (EKS)
+
+---
+# Restore from a scheduled backup — replace <timestamp> with the actual
+# scheduled backup name (kubectl get backups -n velero on the EKS cluster)
+# Example name format: databases-daily-20260517020000
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: databases-migration-from-schedule
+  namespace: velero
+spec:
+  backupName: databases-daily-<timestamp>
+  includedNamespaces:
+    - databases
+  restorePVs: true

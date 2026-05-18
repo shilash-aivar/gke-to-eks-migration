@@ -1,0 +1,8 @@
+# EKS overrides
+minio:
+  persistence:
+    storageClass: gp2
+
+singleBinary:
+  persistence:
+    storageClass: gp2

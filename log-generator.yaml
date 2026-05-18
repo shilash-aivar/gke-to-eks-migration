@@ -1,0 +1,56 @@
+# Log generator for Loki / Velero migration POC
+# Deploy: ./scripts/deploy-log-generator.sh
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-generator
+  namespace: databases
+  labels:
+    app: log-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-generator
+  template:
+    metadata:
+      labels:
+        app: log-generator
+    spec:
+      containers:
+        - name: log-generator
+          image: python:3.12-slim
+          command: ["python", "-u", "/app/log-generator.py"]
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CLUSTER_NAME
+              value: "aks-velero-poc"
+            - name: LOG_INTERVAL_SEC
+              value: "5"
+            - name: LOG_BURST_COUNT
+              value: "3"
+          volumeMounts:
+            - name: script
+              mountPath: /app
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: script
+          configMap:
+            name: log-generator-script
+            items:
+              - key: log-generator.py
+                path: log-generator.py

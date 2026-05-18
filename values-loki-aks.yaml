@@ -1,0 +1,8 @@
+# AKS overrides — Disk CSI storage class
+minio:
+  persistence:
+    storageClass: managed-csi
+
+singleBinary:
+  persistence:
+    storageClass: managed-csi

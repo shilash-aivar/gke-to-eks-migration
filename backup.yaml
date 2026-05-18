@@ -1,0 +1,110 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: databases-migration
+  namespace: velero
+spec:
+  includedNamespaces:
+    - databases
+  defaultVolumesToFsBackup: true
+  storageLocation: default
+  ttl: 720h   # 30 days
+  hooks:
+    resources:
+      - name: postgres-checkpoint
+        includedNamespaces:
+          - databases
+        labelSelector:
+          matchLabels:
+            app: postgres
+        pre:
+          - exec:
+              container: postgres
+              command:
+                - /bin/sh
+                - -c
+                - psql -U appuser -d appdb -c CHECKPOINT
+              onError: Fail
+              timeout: 60s
+      - name: mysql-flush
+        includedNamespaces:
+          - databases
+        labelSelector:
+          matchLabels:
+            app: mysql
+        pre:
+          - exec:
+              container: mysql
+              command:
+                - /bin/sh
+                - -c
+                - mysql -u root -prootpassword -e "FLUSH TABLES WITH READ LOCK"
+              onError: Fail
+              timeout: 60s
+        post:
+          - exec:
+              container: mysql
+              command:
+                - /bin/sh
+                - -c
+                - mysql -u root -prootpassword -e "UNLOCK TABLES"
+              onError: Continue
+              timeout: 60s
+
+---
+# Scheduled backup — runs daily at 2am UTC
+# Apply on the source cluster (GKE or AKS) for ongoing DR during phased migration
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: databases-daily
+  namespace: velero
+spec:
+  schedule: "0 2 * * *"
+  template:
+    includedNamespaces:
+      - databases
+    defaultVolumesToFsBackup: true
+    storageLocation: default
+    ttl: 168h   # keep 7 days of scheduled backups
+    hooks:
+      resources:
+        - name: postgres-checkpoint
+          includedNamespaces:
+            - databases
+          labelSelector:
+            matchLabels:
+              app: postgres
+          pre:
+            - exec:
+                container: postgres
+                command:
+                  - /bin/sh
+                  - -c
+                  - psql -U appuser -d appdb -c CHECKPOINT
+                onError: Fail
+                timeout: 60s
+        - name: mysql-flush
+          includedNamespaces:
+            - databases
+          labelSelector:
+            matchLabels:
+              app: mysql
+          pre:
+            - exec:
+                container: mysql
+                command:
+                  - /bin/sh
+                  - -c
+                  - mysql -u root -prootpassword -e "FLUSH TABLES WITH READ LOCK"
+                onError: Fail
+                timeout: 60s
+          post:
+            - exec:
+                container: mysql
+                command:
+                  - /bin/sh
+                  - -c
+                  - mysql -u root -prootpassword -e "UNLOCK TABLES"
+                onError: Continue
+                timeout: 60s

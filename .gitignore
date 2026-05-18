@@ -1,0 +1,16 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+
+# Secrets / local overrides
+*.swp
+.env
+aws-credentials
+velero-credentials
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
