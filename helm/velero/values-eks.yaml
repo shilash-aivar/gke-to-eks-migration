@@ -15,7 +15,7 @@ configuration:
   backupStorageLocation:
     - name: default
       provider: aws
-      bucket: migration-bucket-for-aivar-shilash        # ← same bucket as GKE
+      bucket: migration-bucket-aks-eks-velero-poc     # ← same bucket as GKE
       default: true
       config:
         region: us-east-1
@@ -35,8 +35,9 @@ credentials:
   secretContents:
     cloud: |
       [default]
-      aws_access_key_id=REPLACE_ME
-      aws_secret_access_key=REPLACE_ME
+      aws_access_key_id=${AWS_ACCESS_KEY_ID}
+      aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}
+      aws_session_token=${AWS_SESSION_TOKEN}
 
 deployNodeAgent: true
 
@@ -80,3 +81,6 @@ configMaps:
 metrics:
   enabled: true
   scrapeInterval: 30s
+
+
+

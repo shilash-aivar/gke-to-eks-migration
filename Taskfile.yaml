@@ -1,0 +1,302 @@
+version: "3"
+
+vars:
+  TF_AWS_DIR: infrastructure/terraform/aws
+  TF_AZURE_DIR: infrastructure/terraform/azure
+  HELM_DIR: helm
+  DATA_GEN_DIR: data-generator
+  VELERO_DIR: velero
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+
+tasks:
+
+  # ── Bootstrap ────────────────────────────────────────────────
+  bootstrap:init:
+    desc: "Init bootstrap (S3 state bucket)"
+    dir: "{{.TF_AWS_DIR}}/bootstrap"
+    cmds:
+      - terraform init
+
+  bootstrap:plan:
+    desc: "Plan bootstrap"
+    dir: "{{.TF_AWS_DIR}}/bootstrap"
+    cmds:
+      - terraform plan
+
+  bootstrap:apply:
+    desc: "Apply bootstrap"
+    dir: "{{.TF_AWS_DIR}}/bootstrap"
+    cmds:
+      - terraform apply -auto-approve
+
+  bootstrap:destroy:
+    desc: "Destroy bootstrap"
+    dir: "{{.TF_AWS_DIR}}/bootstrap"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── Bootstrap IAM ────────────────────────────────────────────
+  bootstrap-iam:init:
+    desc: "Init bootstrap-iam (Velero IRSA)"
+    dir: "{{.TF_AWS_DIR}}/bootstrap-iam"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl
+
+  bootstrap-iam:plan:
+    desc: "Plan bootstrap-iam"
+    dir: "{{.TF_AWS_DIR}}/bootstrap-iam"
+    cmds:
+      - terraform plan
+
+  bootstrap-iam:apply:
+    desc: "Apply bootstrap-iam"
+    dir: "{{.TF_AWS_DIR}}/bootstrap-iam"
+    cmds:
+      - terraform apply -auto-approve
+
+  bootstrap-iam:destroy:
+    desc: "Destroy bootstrap-iam"
+    dir: "{{.TF_AWS_DIR}}/bootstrap-iam"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── VPC ──────────────────────────────────────────────────────
+  vpc:init:
+    desc: "Init VPC module"
+    dir: "{{.TF_AWS_DIR}}/vpc"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl
+
+  vpc:plan:
+    desc: "Plan VPC module"
+    dir: "{{.TF_AWS_DIR}}/vpc"
+    cmds:
+      - terraform plan
+
+  vpc:apply:
+    desc: "Apply VPC module"
+    dir: "{{.TF_AWS_DIR}}/vpc"
+    cmds:
+      - terraform apply -auto-approve
+
+  vpc:destroy:
+    desc: "Destroy VPC module"
+    dir: "{{.TF_AWS_DIR}}/vpc"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── EKS ──────────────────────────────────────────────────────
+  eks:init:
+    desc: "Init EKS module"
+    dir: "{{.TF_AWS_DIR}}/eks"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl
+
+  eks:plan:
+    desc: "Plan EKS module"
+    dir: "{{.TF_AWS_DIR}}/eks"
+    cmds:
+      - terraform plan
+
+  eks:apply:
+    desc: "Apply EKS module"
+    dir: "{{.TF_AWS_DIR}}/eks"
+    cmds:
+      - terraform apply -auto-approve
+
+  eks:destroy:
+    desc: "Destroy EKS module"
+    dir: "{{.TF_AWS_DIR}}/eks"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── S3 ───────────────────────────────────────────────────────
+  s3:init:
+    desc: "Init S3 module"
+    dir: "{{.TF_AWS_DIR}}/s3"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl
+
+  s3:plan:
+    desc: "Plan S3 module"
+    dir: "{{.TF_AWS_DIR}}/s3"
+    cmds:
+      - terraform plan
+
+  s3:apply:
+    desc: "Apply S3 module"
+    dir: "{{.TF_AWS_DIR}}/s3"
+    cmds:
+      - terraform apply -auto-approve
+
+  s3:destroy:
+    desc: "Destroy S3 module"
+    dir: "{{.TF_AWS_DIR}}/s3"
+    cmds:
+      - terraform destroy -auto-approve
+
+  # ── Full stack ───────────────────────────────────────────────
+  aws:init-all:
+    desc: "Init all AWS modules in order"
+    cmds:
+      - task: bootstrap:init
+      - task: bootstrap-iam:init
+      - task: vpc:init
+      - task: s3:init
+      - task: eks:init
+
+  aws:apply-all:
+    desc: "Apply all AWS modules in order"
+    cmds:
+      - task: bootstrap:apply
+      - task: bootstrap-iam:apply
+      - task: vpc:apply
+      - task: s3:apply
+      - task: eks:apply
+
+  aws:destroy-all:
+    desc: "Destroy all AWS modules in reverse order"
+    cmds:
+      - task: eks:destroy
+      - task: s3:destroy
+      - task: vpc:destroy
+      - task: bootstrap-iam:destroy
+
+  # ── Helm ─────────────────────────────────────────────────────
+  helm:velero:install:
+    desc: "Install Velero on EKS"
+    cmds:
+      - >
+        envsubst < {{.HELM_DIR}}/velero/values-eks.yaml |
+        helm upgrade --install velero vmware-tanzu/velero
+        --namespace velero --create-namespace -f -
+
+  helm:velero:install-aks:
+    desc: "Install Velero on AKS"
+    cmds:
+      - >
+        helm upgrade --install velero vmware-tanzu/velero
+        --namespace velero --create-namespace
+        -f {{.HELM_DIR}}/velero/values-aks.yaml
+
+  helm:velero:uninstall:
+    desc: "Uninstall Velero"
+    cmds:
+      - helm uninstall velero --namespace velero
+
+  helm:loki:install:
+    desc: "Install Loki (generic)"
+    cmds:
+      - >
+        helm upgrade --install loki grafana/loki-stack
+        --namespace monitoring --create-namespace
+        -f {{.HELM_DIR}}/loki/values.yaml
+
+  helm:loki:install-eks:
+    desc: "Install Loki on EKS"
+    cmds:
+      - >
+        helm upgrade --install loki grafana/loki-stack
+        --namespace monitoring --create-namespace
+        -f {{.HELM_DIR}}/loki/values-eks.yaml
+
+  helm:loki:install-aks:
+    desc: "Install Loki on AKS"
+    cmds:
+      - >
+        helm upgrade --install loki grafana/loki-stack
+        --namespace monitoring --create-namespace
+        -f {{.HELM_DIR}}/loki/values-aks.yaml
+
+  helm:grafana:install:
+    desc: "Install Grafana"
+    cmds:
+      - >
+        helm upgrade --install grafana grafana/grafana
+        --namespace monitoring --create-namespace
+        -f {{.HELM_DIR}}/grafana/values.yaml
+
+  helm:promtail:install:
+    desc: "Install Promtail"
+    cmds:
+      - >
+        helm upgrade --install promtail grafana/promtail
+        --namespace monitoring --create-namespace
+        -f {{.HELM_DIR}}/promtail/values.yaml
+
+  helm:monitoring:install:
+    desc: "Install full monitoring stack (Loki + Grafana + Promtail)"
+    cmds:
+      - task: helm:loki:install
+      - task: helm:grafana:install
+      - task: helm:promtail:install
+
+  # ── Velero manifests ─────────────────────────────────────────
+  velero:backup:
+    desc: "Trigger Velero backup (databases only)"
+    cmds:
+      - kubectl apply -f {{.VELERO_DIR}}/backup.yaml
+
+  velero:backup-all:
+    desc: "Trigger full migration backup"
+    cmds:
+      - kubectl apply -f {{.VELERO_DIR}}/backup-all.yaml
+
+  velero:restore:
+    desc: "Trigger Velero restore"
+    cmds:
+      - kubectl apply -f {{.VELERO_DIR}}/restore.yaml
+
+  velero:status:
+    desc: "Check Velero backup and restore status"
+    cmds:
+      - kubectl get backups -n velero
+      - kubectl get restores -n velero
+      - kubectl get backupstoragelocations -n velero
+
+  # ── Data generator ───────────────────────────────────────────
+  data:setup:
+    desc: "Install data generator dependencies"
+    dir: "{{.DATA_GEN_DIR}}"
+    cmds:
+      - pip install -r requirements.txt
+
+  data:generate:mysql:
+    desc: "Generate fake data into MySQL (use -- --customers N to override)"
+    dir: "{{.DATA_GEN_DIR}}"
+    vars:
+      CUSTOMERS: '{{default "100" .CUSTOMERS}}'
+      BATCH_SIZE: '{{default "1000" .BATCH_SIZE}}'
+    cmds:
+      - >
+        python generate.py --db mysql
+        --host {{.MYSQL_HOST | default "localhost"}}
+        --user {{.MYSQL_USER | default "root"}}
+        --password {{.MYSQL_PASSWORD | default "secret"}}
+        --database {{.MYSQL_DATABASE | default "migration_db"}}
+        --customers {{.CUSTOMERS}}
+        --batch-size {{.BATCH_SIZE}}
+
+  data:generate:postgres:
+    desc: "Generate fake data into Postgres (use -- --customers N to override)"
+    dir: "{{.DATA_GEN_DIR}}"
+    vars:
+      CUSTOMERS: '{{default "100" .CUSTOMERS}}'
+      BATCH_SIZE: '{{default "1000" .BATCH_SIZE}}'
+    cmds:
+      - >
+        python generate.py --db postgres
+        --host {{.POSTGRES_HOST | default "localhost"}}
+        --user {{.POSTGRES_USER | default "postgres"}}
+        --password {{.POSTGRES_PASSWORD | default "secret"}}
+        --database {{.POSTGRES_DATABASE | default "migration_db"}}
+        --customers {{.CUSTOMERS}}
+        --batch-size {{.BATCH_SIZE}}
+
+  data:generate:all:
+    desc: "Generate fake data into both MySQL and Postgres"
+    cmds:
+      - task: data:generate:mysql
+      - task: data:generate:postgres
