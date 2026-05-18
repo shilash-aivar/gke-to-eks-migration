@@ -6,6 +6,7 @@ vars:
   HELM_DIR: helm
   DATA_GEN_DIR: data-generator
   VELERO_DIR: velero
+  MANIFESTS_DIR: manifests
 
 env:
   AWS_DEFAULT_REGION: us-east-1
@@ -300,3 +301,30 @@ tasks:
     cmds:
       - task: data:generate:mysql
       - task: data:generate:postgres
+
+  # ── Manifests ────────────────────────────────────────────────
+  manifests:deploy:eks:
+    desc: "Deploy database workloads on EKS"
+    cmds:
+      - kubectl apply -f {{.MANIFESTS_DIR}}/databases-eks.yaml
+
+  manifests:deploy:aks:
+    desc: "Deploy database workloads on AKS"
+    cmds:
+      - kubectl apply -f {{.MANIFESTS_DIR}}/databases-aks.yaml
+
+  manifests:delete:eks:
+    desc: "Delete database workloads from EKS"
+    cmds:
+      - kubectl delete -f {{.MANIFESTS_DIR}}/databases-eks.yaml
+
+  manifests:delete:aks:
+    desc: "Delete database workloads from AKS"
+    cmds:
+      - kubectl delete -f {{.MANIFESTS_DIR}}/databases-aks.yaml
+
+  manifests:status:
+    desc: "Check database workload pod status"
+    cmds:
+      - kubectl get pods -n databases
+      - kubectl get pvc -n databases
