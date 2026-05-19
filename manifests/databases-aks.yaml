@@ -53,7 +53,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:15
+          image: postgres:17
           env:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
@@ -131,7 +131,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:8.0
+          image: mysql:8.4
           envFrom:
             - secretRef:
                 name: mysql-secret

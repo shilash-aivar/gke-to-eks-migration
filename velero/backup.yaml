@@ -8,7 +8,9 @@ spec:
     - databases
   defaultVolumesToFsBackup: true
   storageLocation: default
-  ttl: 720h   # 30 days
+  ttl: 720h
+  csiSnapshotTimeout: 10m
+  itemOperationTimeout: 1h
   hooks:
     resources:
       - name: postgres-checkpoint

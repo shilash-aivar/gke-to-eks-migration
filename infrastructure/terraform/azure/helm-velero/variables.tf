@@ -40,7 +40,7 @@ variable "velero_namespace" {
 variable "velero_chart_version" {
   description = "Velero Helm chart version"
   type        = string
-  default     = "8.1.0"
+  default     = "12.0.1"
 }
 
 variable "environment" {

@@ -10,6 +10,10 @@ vars:
   DATA_GEN_DIR: data-generator
   VELERO_DIR: velero
   MANIFESTS_DIR: manifests
+  AKS_CONTEXT:
+    sh: kubectl config get-contexts -o name | grep -v "arn:aws:eks" | grep -v "^$" | head -1
+  EKS_CONTEXT:
+    sh: kubectl config get-contexts -o name | grep "arn:aws:eks" | head -1
 
 env:
   AWS_DEFAULT_REGION: us-east-1
@@ -183,18 +187,20 @@ tasks:
       - task: bootstrap:apply
       - task: vpc:apply
       - task: s3:apply
-      - task: eks:apply
-      - task: bootstrap-iam:apply
+      - task: eks:apply           # pass 1 — cluster + node group (EBS CSI addon skipped, no IRSA yet)
+      - task: bootstrap-iam:apply # creates Velero + EBS CSI IRSA roles
+      - task: eks:apply           # pass 2 — EBS CSI addon created now that IRSA role exists
       - task: helm-velero:apply
 
   aws:destroy-all:
     desc: "Destroy all AWS modules in reverse order"
     cmds:
       - task: helm-velero:destroy
+      - task: bootstrap-iam:destroy
       - task: eks:destroy
       - task: s3:destroy
       - task: vpc:destroy
-      - task: bootstrap-iam:destroy
+      - task: bootstrap:destroy
 
   # ── Azure Bootstrap ──────────────────────────────────────────
   az:bootstrap:init:
@@ -371,10 +377,11 @@ tasks:
     desc: "Destroy all Azure modules in reverse order"
     cmds:
       - task: az:helm-velero:destroy
+      - task: az:bootstrap-iam:destroy
       - task: az:aks:destroy
       - task: az:storage:destroy
       - task: az:vnet:destroy
-      - task: az:bootstrap-iam:destroy
+      - task: az:bootstrap:destroy
 
   # ── Helm ─────────────────────────────────────────────────────
   helm:velero:install:
@@ -383,7 +390,8 @@ tasks:
       - >
         envsubst < {{.HELM_DIR}}/velero/values-eks.yaml |
         helm upgrade --install velero vmware-tanzu/velero
-        --namespace velero --create-namespace -f -
+        --namespace velero --create-namespace
+        --kube-context {{.EKS_CONTEXT}} -f -
 
   helm:velero:install-aks:
     desc: "Install Velero on AKS"
@@ -391,12 +399,13 @@ tasks:
       - >
         helm upgrade --install velero vmware-tanzu/velero
         --namespace velero --create-namespace
+        --kube-context {{.AKS_CONTEXT}}
         -f {{.HELM_DIR}}/velero/values-aks.yaml
 
   helm:velero:uninstall:
     desc: "Uninstall Velero"
     cmds:
-      - helm uninstall velero --namespace velero
+      - helm uninstall velero --namespace velero --kube-context {{.AKS_CONTEXT}}
 
   helm:loki:install:
     desc: "Install Loki (generic)"
@@ -449,63 +458,73 @@ tasks:
   velero:backup:
     desc: "Trigger Velero backup (databases only)"
     cmds:
-      - kubectl apply -f {{.VELERO_DIR}}/backup.yaml
+      - kubectl apply -f {{.VELERO_DIR}}/backup.yaml --context {{.AKS_CONTEXT}}
 
   velero:backup-all:
     desc: "Trigger full migration backup"
     cmds:
-      - kubectl apply -f {{.VELERO_DIR}}/backup-all.yaml
+      - kubectl apply -f {{.VELERO_DIR}}/backup-all.yaml --context {{.AKS_CONTEXT}}
 
   velero:restore:
     desc: "Trigger Velero restore"
     cmds:
-      - kubectl apply -f {{.VELERO_DIR}}/restore.yaml
+      - kubectl apply -f {{.VELERO_DIR}}/restore.yaml --context {{.EKS_CONTEXT}}
 
   velero:status:
     desc: "Check Velero backup and restore status"
     cmds:
-      - kubectl get backups -n velero
-      - kubectl get restores -n velero
-      - kubectl get backupstoragelocations -n velero
+      - echo "=== Backups (AKS) ===" && kubectl get backups -n velero --context {{.AKS_CONTEXT}} -o custom-columns="NAME:.metadata.name,STATUS:.status.phase,STARTED:.status.startTimestamp,COMPLETED:.status.completionTimestamp,ERRORS:.status.errors,WARNINGS:.status.warnings"
+      - echo "=== Restores (EKS) ===" && kubectl get restores -n velero --context {{.EKS_CONTEXT}} -o custom-columns="NAME:.metadata.name,STATUS:.status.phase,STARTED:.metadata.creationTimestamp,ERRORS:.status.errors,WARNINGS:.status.warnings"
+      - echo "=== Storage Locations ===" && kubectl get backupstoragelocations -n velero --context {{.AKS_CONTEXT}}
 
   # ── Data generator ───────────────────────────────────────────
   data:setup:
-    desc: "Install data generator dependencies"
+    desc: "Sync data generator dependencies with uv"
     dir: "{{.DATA_GEN_DIR}}"
     cmds:
-      - pip install -r requirements.txt
+      - uv sync
 
   data:generate:mysql:
-    desc: "Generate fake data into MySQL (use -- --customers N to override)"
+    desc: "Generate fake data into MySQL. Flags: CUSTOMERS=N ORDERS_MIN=N ORDERS_MAX=N BATCH_SIZE=N"
     dir: "{{.DATA_GEN_DIR}}"
     vars:
       CUSTOMERS: '{{default "100" .CUSTOMERS}}'
+      ORDERS_MIN: '{{default "1" .ORDERS_MIN}}'
+      ORDERS_MAX: '{{default "5" .ORDERS_MAX}}'
       BATCH_SIZE: '{{default "1000" .BATCH_SIZE}}'
     cmds:
-      - >
-        python generate.py --db mysql
-        --host {{.MYSQL_HOST | default "localhost"}}
-        --user {{.MYSQL_USER | default "root"}}
-        --password {{.MYSQL_PASSWORD | default "secret"}}
-        --database {{.MYSQL_DATABASE | default "migration_db"}}
-        --customers {{.CUSTOMERS}}
-        --batch-size {{.BATCH_SIZE}}
+      - |
+        pkill -f "port-forward svc/mysql" 2>/dev/null; sleep 1
+        kubectl port-forward svc/mysql 3306:3306 -n databases --context {{.AKS_CONTEXT}} &
+        PF_PID=$!
+        trap "kill $PF_PID 2>/dev/null" EXIT
+        until nc -z 127.0.0.1 3306 2>/dev/null; do sleep 1; done
+        uv run generate.py --db mysql \
+          --host 127.0.0.1 --port 3306 \
+          --user appuser --password apppassword --database appdb \
+          --customers {{.CUSTOMERS}} --orders-min {{.ORDERS_MIN}} --orders-max {{.ORDERS_MAX}} \
+          --batch-size {{.BATCH_SIZE}}
 
   data:generate:postgres:
-    desc: "Generate fake data into Postgres (use -- --customers N to override)"
+    desc: "Generate fake data into Postgres. Flags: CUSTOMERS=N ORDERS_MIN=N ORDERS_MAX=N BATCH_SIZE=N"
     dir: "{{.DATA_GEN_DIR}}"
     vars:
       CUSTOMERS: '{{default "100" .CUSTOMERS}}'
+      ORDERS_MIN: '{{default "1" .ORDERS_MIN}}'
+      ORDERS_MAX: '{{default "5" .ORDERS_MAX}}'
       BATCH_SIZE: '{{default "1000" .BATCH_SIZE}}'
     cmds:
-      - >
-        python generate.py --db postgres
-        --host {{.POSTGRES_HOST | default "localhost"}}
-        --user {{.POSTGRES_USER | default "postgres"}}
-        --password {{.POSTGRES_PASSWORD | default "secret"}}
-        --database {{.POSTGRES_DATABASE | default "migration_db"}}
-        --customers {{.CUSTOMERS}}
-        --batch-size {{.BATCH_SIZE}}
+      - |
+        pkill -f "port-forward svc/postgres" 2>/dev/null; sleep 1
+        kubectl port-forward svc/postgres 5432:5432 -n databases --context {{.AKS_CONTEXT}} &
+        PF_PID=$!
+        trap "kill $PF_PID 2>/dev/null" EXIT
+        until nc -z 127.0.0.1 5432 2>/dev/null; do sleep 1; done
+        uv run generate.py --db postgres \
+          --host 127.0.0.1 --port 5432 \
+          --user appuser --password apppassword --database appdb \
+          --customers {{.CUSTOMERS}} --orders-min {{.ORDERS_MIN}} --orders-max {{.ORDERS_MAX}} \
+          --batch-size {{.BATCH_SIZE}}
 
   data:generate:all:
     desc: "Generate fake data into both MySQL and Postgres"
@@ -513,29 +532,116 @@ tasks:
       - task: data:generate:mysql
       - task: data:generate:postgres
 
+  data:count:aks:
+    desc: "Count rows in customers and orders on AKS"
+    dir: "{{.DATA_GEN_DIR}}"
+    cmds:
+      - |
+        pkill -f "port-forward svc/mysql" 2>/dev/null; sleep 1
+        pkill -f "port-forward svc/postgres" 2>/dev/null; sleep 1
+        kubectl port-forward svc/mysql 3306:3306 -n databases --context {{.AKS_CONTEXT}} &
+        PF_MYSQL=$!
+        kubectl port-forward svc/postgres 5432:5432 -n databases --context {{.AKS_CONTEXT}} &
+        PF_PG=$!
+        trap "kill $PF_MYSQL $PF_PG 2>/dev/null" EXIT
+        until nc -z 127.0.0.1 3306 2>/dev/null; do sleep 1; done
+        until nc -z 127.0.0.1 5432 2>/dev/null; do sleep 1; done
+        uv run count.py
+
+  data:count:eks:
+    desc: "Count rows in customers and orders on EKS"
+    dir: "{{.DATA_GEN_DIR}}"
+    cmds:
+      - |
+        pkill -f "port-forward svc/mysql" 2>/dev/null; sleep 1
+        pkill -f "port-forward svc/postgres" 2>/dev/null; sleep 1
+        kubectl port-forward svc/mysql 3306:3306 -n databases --context {{.EKS_CONTEXT}} &
+        PF_MYSQL=$!
+        kubectl port-forward svc/postgres 5432:5432 -n databases --context {{.EKS_CONTEXT}} &
+        PF_PG=$!
+        trap "kill $PF_MYSQL $PF_PG 2>/dev/null" EXIT
+        until nc -z 127.0.0.1 3306 2>/dev/null; do sleep 1; done
+        until nc -z 127.0.0.1 5432 2>/dev/null; do sleep 1; done
+        uv run count.py
+
+  data:count:all:
+    desc: "Count rows on both AKS and EKS for comparison"
+    dir: "{{.DATA_GEN_DIR}}"
+    cmds:
+      - |
+        pkill -f "port-forward svc/mysql" 2>/dev/null
+        pkill -f "port-forward svc/postgres" 2>/dev/null
+        sleep 1
+
+        echo "=== AKS ==="
+        kubectl port-forward svc/mysql 3306:3306 -n databases --context {{.AKS_CONTEXT}} &>/dev/null &
+        PF_MYSQL=$!
+        kubectl port-forward svc/postgres 5432:5432 -n databases --context {{.AKS_CONTEXT}} &>/dev/null &
+        PF_PG=$!
+        until nc -z 127.0.0.1 3306 2>/dev/null; do sleep 1; done
+        until nc -z 127.0.0.1 5432 2>/dev/null; do sleep 1; done
+        uv run count.py
+        kill $PF_MYSQL $PF_PG 2>/dev/null || true
+        sleep 2
+
+        echo ""
+        echo "=== EKS ==="
+        kubectl port-forward svc/mysql 3306:3306 -n databases --context {{.EKS_CONTEXT}} &>/dev/null &
+        PF_MYSQL=$!
+        kubectl port-forward svc/postgres 5432:5432 -n databases --context {{.EKS_CONTEXT}} &>/dev/null &
+        PF_PG=$!
+        until nc -z 127.0.0.1 3306 2>/dev/null; do sleep 1; done
+        until nc -z 127.0.0.1 5432 2>/dev/null; do sleep 1; done
+        uv run count.py
+        kill $PF_MYSQL $PF_PG 2>/dev/null || true
+
+  data:count:
+    desc: "Alias for data:count:all"
+    cmds:
+      - task: data:count:all
+
+  data:verify:
+    desc: "Verify data parity between AKS (source) and EKS (destination)"
+    dir: "{{.DATA_GEN_DIR}}"
+    cmds:
+      - |
+        pkill -f "port-forward svc/mysql" 2>/dev/null || true
+        pkill -f "port-forward svc/postgres" 2>/dev/null || true
+        sleep 1
+        kubectl port-forward svc/mysql    3307:3306 -n databases --context {{.AKS_CONTEXT}} &>/dev/null &
+        kubectl port-forward svc/mysql    3308:3306 -n databases --context {{.EKS_CONTEXT}} &>/dev/null &
+        kubectl port-forward svc/postgres 5433:5432 -n databases --context {{.AKS_CONTEXT}} &>/dev/null &
+        kubectl port-forward svc/postgres 5434:5432 -n databases --context {{.EKS_CONTEXT}} &>/dev/null &
+        trap "pkill -f 'port-forward svc/mysql' 2>/dev/null; pkill -f 'port-forward svc/postgres' 2>/dev/null" EXIT
+        until nc -z 127.0.0.1 3307 2>/dev/null; do sleep 1; done
+        until nc -z 127.0.0.1 3308 2>/dev/null; do sleep 1; done
+        until nc -z 127.0.0.1 5433 2>/dev/null; do sleep 1; done
+        until nc -z 127.0.0.1 5434 2>/dev/null; do sleep 1; done
+        uv run verify.py
+
   # ── Manifests ────────────────────────────────────────────────
   manifests:deploy:eks:
     desc: "Deploy database workloads on EKS"
     cmds:
-      - kubectl apply -f {{.MANIFESTS_DIR}}/databases-eks.yaml
+      - kubectl apply -f {{.MANIFESTS_DIR}}/databases-eks.yaml --context {{.EKS_CONTEXT}}
 
   manifests:deploy:aks:
     desc: "Deploy database workloads on AKS"
     cmds:
-      - kubectl apply -f {{.MANIFESTS_DIR}}/databases-aks.yaml
+      - kubectl apply -f {{.MANIFESTS_DIR}}/databases-aks.yaml --context {{.AKS_CONTEXT}}
 
   manifests:delete:eks:
     desc: "Delete database workloads from EKS"
     cmds:
-      - kubectl delete -f {{.MANIFESTS_DIR}}/databases-eks.yaml
+      - kubectl delete -f {{.MANIFESTS_DIR}}/databases-eks.yaml --context {{.EKS_CONTEXT}}
 
   manifests:delete:aks:
     desc: "Delete database workloads from AKS"
     cmds:
-      - kubectl delete -f {{.MANIFESTS_DIR}}/databases-aks.yaml
+      - kubectl delete -f {{.MANIFESTS_DIR}}/databases-aks.yaml --context {{.AKS_CONTEXT}}
 
   manifests:status:
-    desc: "Check database workload pod status"
+    desc: "Check database workload pod status on both clusters"
     cmds:
-      - kubectl get pods -n databases
-      - kubectl get pvc -n databases
+      - echo "=== AKS ===" && kubectl get pods -n databases --context {{.AKS_CONTEXT}} && kubectl get pvc -n databases --context {{.AKS_CONTEXT}}
+      - echo "=== EKS ===" && kubectl get pods -n databases --context {{.EKS_CONTEXT}} && kubectl get pvc -n databases --context {{.EKS_CONTEXT}}

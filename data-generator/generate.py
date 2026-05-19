@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """
 Fake data generator for customers and orders tables.
 Supports MySQL and PostgreSQL with chunked inserts for large volumes.
@@ -15,12 +15,14 @@ Usage:
 
 import argparse
 import random
+import time
 from datetime import datetime, timedelta
 
 from faker import Faker
 from tqdm import tqdm
 
 fake = Faker()
+RUN_ID = hex(int(time.time() * 1000))[-6:]  # unique suffix per run
 
 PRODUCTS = [
     ("Velero POC License", 4999),
@@ -43,15 +45,17 @@ def random_timestamp(days_back=90):
         days=random.randint(0, days_back),
         hours=random.randint(0, 23),
         minutes=random.randint(0, 59),
+        seconds=random.randint(0, 59),
     )
-    return datetime.utcnow() - delta
+    return datetime.now().replace(microsecond=0) - delta
 
 
 def customer_batch(size):
     batch = []
     for _ in range(size):
+        local, domain = fake.unique.email().split("@", 1)
         batch.append({
-            "email": fake.unique.email(),
+            "email": f"{local}+{RUN_ID}@{domain}",
             "full_name": fake.name(),
             "country": fake.country_code(),
             "created_at": random_timestamp(),
@@ -87,6 +91,28 @@ def seed_mysql(args):
         autocommit=False,
     )
     cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS customers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            full_name VARCHAR(255),
+            country CHAR(2),
+            created_at DATETIME
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            customer_id INT NOT NULL,
+            product VARCHAR(255),
+            amount_cents INT,
+            status VARCHAR(50),
+            ordered_at DATETIME,
+            FOREIGN KEY (customer_id) REFERENCES customers(id)
+        )
+    """)
+    conn.commit()
 
     total_customers = 0
     total_orders = 0
@@ -151,6 +177,27 @@ def seed_postgres(args):
     )
     conn.autocommit = False
     cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS customers (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            full_name VARCHAR(255),
+            country CHAR(2),
+            created_at TIMESTAMP
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            customer_id INT NOT NULL REFERENCES customers(id),
+            product VARCHAR(255),
+            amount_cents INT,
+            status VARCHAR(50),
+            ordered_at TIMESTAMP
+        )
+    """)
+    conn.commit()
 
     total_customers = 0
     total_orders = 0

@@ -1,0 +1,11 @@
+[project]
+name = "data-generator"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "faker>=24.0.0",
+  "pymysql>=1.1.0",
+  "cryptography>=42.0.0",
+  "psycopg2-binary>=2.9.9",
+  "tqdm>=4.66.0",
+]

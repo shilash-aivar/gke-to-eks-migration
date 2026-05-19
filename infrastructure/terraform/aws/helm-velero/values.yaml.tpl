@@ -3,11 +3,16 @@ image:
   tag: v1.18.0
   pullPolicy: IfNotPresent
 
-upgradeCRDs: false
+upgradeCRDs: true
+
+kubectl:
+  image:
+    repository: registry.k8s.io/kubectl
+    tag: "v1.32.3"
 
 initContainers:
   - name: velero-plugin-for-aws
-    image: velero/velero-plugin-for-aws:v1.11.0
+    image: velero/velero-plugin-for-aws:v1.13.1
     imagePullPolicy: IfNotPresent
     volumeMounts:
       - mountPath: /target
@@ -34,8 +39,15 @@ credentials:
 
 serviceAccount:
   server:
+    name: velero-server
+    namespace: velero
     annotations:
       eks.amazonaws.com/role-arn: ${velero_iam_role_arn}
+
+rbac:
+  create: true
+  clusterAdministrator: true
+  clusterAdministratorName: cluster-admin
 
 deployNodeAgent: true
 

@@ -19,6 +19,20 @@ data "aws_vpc" "this" {
   id = var.vpc_id
 }
 
+data "terraform_remote_state" "bootstrap_iam" {
+  backend = "s3"
+
+  config = {
+    bucket = "shilash-tf-state-bucket"
+    key    = "aks-to-eks/bootstrap-iam/terraform.tfstate"
+    region = "us-east-1"
+  }
+
+  defaults = {
+    ebs_csi_role_arn = ""
+  }
+}
+
 resource "aws_iam_role" "eks_cluster" {
   name = "${var.cluster_name}-cluster-role"
 
@@ -124,4 +138,61 @@ resource "aws_iam_openid_connect_provider" "eks" {
   url             = aws_eks_cluster.this.identity[0].oidc[0].issuer
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da2b0ab7280"]
+}
+
+# ── EKS Addons ────────────────────────────────────────────────────────────────
+
+resource "aws_eks_addon" "vpc_cni" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "vpc-cni"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_eks_addon" "coredns" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "coredns"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [aws_eks_node_group.this]
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_eks_addon" "kube_proxy" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "kube-proxy"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_eks_addon" "ebs_csi" {
+  count = data.terraform_remote_state.bootstrap_iam.outputs.ebs_csi_role_arn != "" ? 1 : 0
+
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "aws-ebs-csi-driver"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+  service_account_role_arn    = data.terraform_remote_state.bootstrap_iam.outputs.ebs_csi_role_arn
+
+  depends_on = [aws_eks_node_group.this]
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
 }

@@ -53,7 +53,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:15
+          image: postgres:17
           env:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
@@ -77,7 +77,7 @@ spec:
         name: postgres-data
       spec:
         accessModes: [ReadWriteOnce]
-        storageClassName: standard-rwo
+        storageClassName: gp2
         resources:
           requests:
             storage: 5Gi
@@ -133,7 +133,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:8.0
+          image: mysql:8.4
           envFrom:
             - secretRef:
                 name: mysql-secret
@@ -154,7 +154,7 @@ spec:
         name: mysql-data
       spec:
         accessModes: [ReadWriteOnce]
-        storageClassName: standard-rwo
+        storageClassName: gp2
         resources:
           requests:
             storage: 5Gi
