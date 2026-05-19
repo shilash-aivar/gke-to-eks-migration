@@ -15,14 +15,20 @@ provider "azurerm" {
   features {}
 }
 
-data "azurerm_resource_group" "this" {
-  name = var.resource_group_name
+resource "azurerm_resource_group" "this" {
+  name     = var.aks_resource_group_name
+  location = var.location
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
 }
 
 resource "azurerm_kubernetes_cluster" "this" {
   name                = var.cluster_name
-  location            = data.azurerm_resource_group.this.location
-  resource_group_name = data.azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  resource_group_name = azurerm_resource_group.this.name
   dns_prefix          = var.cluster_name
   kubernetes_version  = var.kubernetes_version
 
@@ -46,12 +52,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   }
 
   network_profile {
-    network_plugin    = "azure"
-    network_policy    = "azure"
-    load_balancer_sku = "standard"
-    pod_cidr          = var.pod_cidr
-    service_cidr      = var.service_cidr
-    dns_service_ip    = var.dns_service_ip
+    network_plugin      = "azure"
+    network_plugin_mode = "overlay"
+    network_policy      = "azure"
+    load_balancer_sku   = "standard"
+    pod_cidr            = var.pod_cidr
+    service_cidr        = var.service_cidr
+    dns_service_ip      = var.dns_service_ip
   }
 
   tags = {

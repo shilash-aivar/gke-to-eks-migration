@@ -23,7 +23,7 @@ data "azurerm_kubernetes_cluster" "this" {
 # Managed identity for Velero workload identity
 resource "azurerm_user_assigned_identity" "velero" {
   name                = var.velero_identity_name
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.identity_resource_group_name
   location            = var.location
 
   tags = {
@@ -35,7 +35,7 @@ resource "azurerm_user_assigned_identity" "velero" {
 # Federated credential so Velero's k8s service account can assume the identity
 resource "azurerm_federated_identity_credential" "velero" {
   name                = "${var.velero_identity_name}-federated"
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.identity_resource_group_name
   parent_id           = azurerm_user_assigned_identity.velero.id
   audience            = ["api://AzureADTokenExchange"]
   issuer              = data.azurerm_kubernetes_cluster.this.oidc_issuer_url
@@ -44,7 +44,7 @@ resource "azurerm_federated_identity_credential" "velero" {
 
 data "azurerm_storage_account" "velero" {
   name                = var.velero_storage_account_name
-  resource_group_name = var.velero_storage_resource_group
+  resource_group_name = var.velero_resource_group_name
 }
 
 # Storage Blob Data Contributor on the Velero storage account

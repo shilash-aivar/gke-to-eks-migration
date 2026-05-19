@@ -4,17 +4,17 @@ variable "location" {
   default     = "eastus"
 }
 
-variable "resource_group_name" {
+variable "velero_resource_group_name" {
   description = "Resource group for Velero storage"
   type        = string
 }
 
-variable "storage_account_name" {
+variable "velero_storage_account_name" {
   description = "Storage account name for Velero backups (3-24 chars, lowercase alphanumeric)"
   type        = string
 }
 
-variable "container_name" {
+variable "velero_container_name" {
   description = "Blob container name for Velero backups"
   type        = string
   default     = "velero-backups"

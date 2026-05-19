@@ -15,27 +15,26 @@ configuration:
   backupStorageLocation:
     - name: default
       provider: aws
-      bucket: aivar-velero-backups-dev
+      bucket: ${velero_bucket_name}
       default: true
       config:
-        region: us-east-1
-
+        region: ${aws_region}
   volumeSnapshotLocation:
     - name: default
       provider: aws
       config:
-        region: us-east-1
-
+        region: ${aws_region}
   defaultVolumesToFsBackup: true
   uploaderType: kopia
 
 credentials:
-  useSecret: false
-
-serviceAccount:
-  server:
-    annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/velero-irsa-role
+  useSecret: true
+  name: velero-credentials
+  secretContents:
+    cloud: |
+      [default]
+      aws_access_key_id=${aws_access_key_id}
+      aws_secret_access_key=${aws_secret_access_key}
 
 deployNodeAgent: true
 
@@ -44,41 +43,20 @@ nodeAgent:
   privileged: false
   resources:
     requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
       cpu: 500m
       memory: 512Mi
-    limits:
-      cpu: 1000m
-      memory: 1024Mi
 
 resources:
   requests:
-    cpu: 500m
+    cpu: 100m
     memory: 128Mi
   limits:
-    cpu: 1000m
+    cpu: 500m
     memory: 256Mi
-
-# Map source cluster storage class → EKS storage class (GKE and/or AKS)
-configMaps:
-  change-storage-class:
-    labels:
-      velero.io/plugin-config: ""
-      velero.io/change-storage-class: RestoreItemAction
-    data:
-      # GKE
-      standard: gp2
-      standard-rwo: gp2
-      premium-rwo: gp3
-      # AKS (Disk CSI — default on modern AKS)
-      managed-csi: gp2
-      managed: gp2
-      default: gp2
-      managed-csi-premium: gp3
-      managed-premium: gp3
 
 metrics:
   enabled: true
   scrapeInterval: 30s
-
-
-

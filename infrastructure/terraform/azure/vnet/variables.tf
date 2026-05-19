@@ -4,7 +4,7 @@ variable "location" {
   default     = "eastus"
 }
 
-variable "resource_group_name" {
+variable "vnet_resource_group_name" {
   description = "Resource group name for networking resources"
   type        = string
 }

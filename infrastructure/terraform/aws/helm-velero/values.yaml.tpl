@@ -3,6 +3,8 @@ image:
   tag: v1.18.0
   pullPolicy: IfNotPresent
 
+upgradeCRDs: false
+
 initContainers:
   - name: velero-plugin-for-aws
     image: velero/velero-plugin-for-aws:v1.11.0
@@ -15,17 +17,15 @@ configuration:
   backupStorageLocation:
     - name: default
       provider: aws
-      bucket: aivar-velero-backups-dev
+      bucket: ${velero_bucket_name}
       default: true
       config:
-        region: us-east-1
-
+        region: ${aws_region}
   volumeSnapshotLocation:
     - name: default
       provider: aws
       config:
-        region: us-east-1
-
+        region: ${aws_region}
   defaultVolumesToFsBackup: true
   uploaderType: kopia
 
@@ -35,7 +35,7 @@ credentials:
 serviceAccount:
   server:
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/velero-irsa-role
+      eks.amazonaws.com/role-arn: ${velero_iam_role_arn}
 
 deployNodeAgent: true
 
@@ -58,18 +58,15 @@ resources:
     cpu: 1000m
     memory: 256Mi
 
-# Map source cluster storage class → EKS storage class (GKE and/or AKS)
 configMaps:
   change-storage-class:
     labels:
       velero.io/plugin-config: ""
       velero.io/change-storage-class: RestoreItemAction
     data:
-      # GKE
       standard: gp2
       standard-rwo: gp2
       premium-rwo: gp3
-      # AKS (Disk CSI — default on modern AKS)
       managed-csi: gp2
       managed: gp2
       default: gp2
@@ -79,6 +76,3 @@ configMaps:
 metrics:
   enabled: true
   scrapeInterval: 30s
-
-
-

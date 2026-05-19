@@ -1,4 +1,10 @@
-variable "resource_group_name" {
+variable "location" {
+  description = "Azure region"
+  type        = string
+  default     = "eastus"
+}
+
+variable "aks_resource_group_name" {
   description = "Resource group for the AKS cluster"
   type        = string
 }

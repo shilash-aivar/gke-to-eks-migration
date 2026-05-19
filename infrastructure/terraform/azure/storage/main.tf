@@ -16,7 +16,7 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "velero" {
-  name     = var.resource_group_name
+  name     = var.velero_resource_group_name
   location = var.location
 
   tags = {
@@ -26,7 +26,7 @@ resource "azurerm_resource_group" "velero" {
 }
 
 resource "azurerm_storage_account" "velero" {
-  name                            = var.storage_account_name
+  name                            = var.velero_storage_account_name
   resource_group_name             = azurerm_resource_group.velero.name
   location                        = azurerm_resource_group.velero.location
   account_tier                    = "Standard"
@@ -49,7 +49,7 @@ resource "azurerm_storage_account" "velero" {
 }
 
 resource "azurerm_storage_container" "velero" {
-  name                  = var.container_name
+  name                  = var.velero_container_name
   storage_account_name  = azurerm_storage_account.velero.name
   container_access_type = "private"
 }

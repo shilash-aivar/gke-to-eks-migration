@@ -3,6 +3,9 @@ version: "3"
 vars:
   TF_AWS_DIR: infrastructure/terraform/aws
   TF_AZURE_DIR: infrastructure/terraform/azure
+  ENV: '{{default "dev" .ENV}}'
+  AWS_VARS: "../../../environments/aws/{{.ENV}}.tfvars"
+  AZURE_VARS: "../../../environments/azure/{{.ENV}}.tfvars"
   HELM_DIR: helm
   DATA_GEN_DIR: data-generator
   VELERO_DIR: velero
@@ -24,142 +27,170 @@ tasks:
     desc: "Plan bootstrap"
     dir: "{{.TF_AWS_DIR}}/bootstrap"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AWS_VARS}}
 
   bootstrap:apply:
     desc: "Apply bootstrap"
     dir: "{{.TF_AWS_DIR}}/bootstrap"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   bootstrap:destroy:
     desc: "Destroy bootstrap"
     dir: "{{.TF_AWS_DIR}}/bootstrap"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   # ── Bootstrap IAM ────────────────────────────────────────────
   bootstrap-iam:init:
     desc: "Init bootstrap-iam (Velero IRSA)"
     dir: "{{.TF_AWS_DIR}}/bootstrap-iam"
     cmds:
-      - terraform init -backend-config=backend/backend.hcl
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
 
   bootstrap-iam:plan:
     desc: "Plan bootstrap-iam"
     dir: "{{.TF_AWS_DIR}}/bootstrap-iam"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AWS_VARS}}
 
   bootstrap-iam:apply:
     desc: "Apply bootstrap-iam"
     dir: "{{.TF_AWS_DIR}}/bootstrap-iam"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   bootstrap-iam:destroy:
     desc: "Destroy bootstrap-iam"
     dir: "{{.TF_AWS_DIR}}/bootstrap-iam"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   # ── VPC ──────────────────────────────────────────────────────
   vpc:init:
     desc: "Init VPC module"
     dir: "{{.TF_AWS_DIR}}/vpc"
     cmds:
-      - terraform init -backend-config=backend/backend.hcl
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
 
   vpc:plan:
     desc: "Plan VPC module"
     dir: "{{.TF_AWS_DIR}}/vpc"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AWS_VARS}}
 
   vpc:apply:
     desc: "Apply VPC module"
     dir: "{{.TF_AWS_DIR}}/vpc"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   vpc:destroy:
     desc: "Destroy VPC module"
     dir: "{{.TF_AWS_DIR}}/vpc"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   # ── EKS ──────────────────────────────────────────────────────
   eks:init:
     desc: "Init EKS module"
     dir: "{{.TF_AWS_DIR}}/eks"
     cmds:
-      - terraform init -backend-config=backend/backend.hcl
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
 
   eks:plan:
     desc: "Plan EKS module"
     dir: "{{.TF_AWS_DIR}}/eks"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AWS_VARS}}
 
   eks:apply:
     desc: "Apply EKS module"
     dir: "{{.TF_AWS_DIR}}/eks"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   eks:destroy:
     desc: "Destroy EKS module"
     dir: "{{.TF_AWS_DIR}}/eks"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   # ── S3 ───────────────────────────────────────────────────────
   s3:init:
     desc: "Init S3 module"
     dir: "{{.TF_AWS_DIR}}/s3"
     cmds:
-      - terraform init -backend-config=backend/backend.hcl
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
 
   s3:plan:
     desc: "Plan S3 module"
     dir: "{{.TF_AWS_DIR}}/s3"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AWS_VARS}}
 
   s3:apply:
     desc: "Apply S3 module"
     dir: "{{.TF_AWS_DIR}}/s3"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   s3:destroy:
     desc: "Destroy S3 module"
     dir: "{{.TF_AWS_DIR}}/s3"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
+
+  # ── Helm Velero (EKS) ────────────────────────────────────────
+  helm-velero:init:
+    desc: "Init Velero Helm module for EKS"
+    dir: "{{.TF_AWS_DIR}}/helm-velero"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
+
+  helm-velero:plan:
+    desc: "Plan Velero Helm release on EKS"
+    dir: "{{.TF_AWS_DIR}}/helm-velero"
+    cmds:
+      - terraform plan -compact-warnings -var-file={{.AWS_VARS}}
+
+  helm-velero:apply:
+    desc: "Apply Velero Helm release on EKS"
+    dir: "{{.TF_AWS_DIR}}/helm-velero"
+    cmds:
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
+
+  helm-velero:destroy:
+    desc: "Destroy Velero Helm release on EKS"
+    dir: "{{.TF_AWS_DIR}}/helm-velero"
+    cmds:
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AWS_VARS}}
 
   # ── Full stack ───────────────────────────────────────────────
   aws:init-all:
     desc: "Init all AWS modules in order"
     cmds:
       - task: bootstrap:init
-      - task: bootstrap-iam:init
       - task: vpc:init
       - task: s3:init
       - task: eks:init
+      - task: bootstrap-iam:init
+      - task: helm-velero:init
 
   aws:apply-all:
     desc: "Apply all AWS modules in order"
     cmds:
       - task: bootstrap:apply
-      - task: bootstrap-iam:apply
       - task: vpc:apply
       - task: s3:apply
       - task: eks:apply
+      - task: bootstrap-iam:apply
+      - task: helm-velero:apply
 
   aws:destroy-all:
     desc: "Destroy all AWS modules in reverse order"
     cmds:
+      - task: helm-velero:destroy
       - task: eks:destroy
       - task: s3:destroy
       - task: vpc:destroy
@@ -176,142 +207,170 @@ tasks:
     desc: "Plan Azure bootstrap"
     dir: "{{.TF_AZURE_DIR}}/bootstrap"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AZURE_VARS}}
 
   az:bootstrap:apply:
     desc: "Apply Azure bootstrap"
     dir: "{{.TF_AZURE_DIR}}/bootstrap"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   az:bootstrap:destroy:
     desc: "Destroy Azure bootstrap"
     dir: "{{.TF_AZURE_DIR}}/bootstrap"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   # ── Azure Bootstrap IAM ──────────────────────────────────────
   az:bootstrap-iam:init:
     desc: "Init Azure bootstrap-iam (Velero workload identity)"
     dir: "{{.TF_AZURE_DIR}}/bootstrap-iam"
     cmds:
-      - terraform init -backend-config=backend/backend.hcl
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
 
   az:bootstrap-iam:plan:
     desc: "Plan Azure bootstrap-iam"
     dir: "{{.TF_AZURE_DIR}}/bootstrap-iam"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AZURE_VARS}}
 
   az:bootstrap-iam:apply:
     desc: "Apply Azure bootstrap-iam"
     dir: "{{.TF_AZURE_DIR}}/bootstrap-iam"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   az:bootstrap-iam:destroy:
     desc: "Destroy Azure bootstrap-iam"
     dir: "{{.TF_AZURE_DIR}}/bootstrap-iam"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   # ── Azure VNet ───────────────────────────────────────────────
   az:vnet:init:
     desc: "Init Azure VNet module"
     dir: "{{.TF_AZURE_DIR}}/vnet"
     cmds:
-      - terraform init -backend-config=backend/backend.hcl
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
 
   az:vnet:plan:
     desc: "Plan Azure VNet module"
     dir: "{{.TF_AZURE_DIR}}/vnet"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AZURE_VARS}}
 
   az:vnet:apply:
     desc: "Apply Azure VNet module"
     dir: "{{.TF_AZURE_DIR}}/vnet"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   az:vnet:destroy:
     desc: "Destroy Azure VNet module"
     dir: "{{.TF_AZURE_DIR}}/vnet"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   # ── Azure AKS ────────────────────────────────────────────────
   az:aks:init:
     desc: "Init Azure AKS module"
     dir: "{{.TF_AZURE_DIR}}/aks"
     cmds:
-      - terraform init -backend-config=backend/backend.hcl
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
 
   az:aks:plan:
     desc: "Plan Azure AKS module"
     dir: "{{.TF_AZURE_DIR}}/aks"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AZURE_VARS}}
 
   az:aks:apply:
     desc: "Apply Azure AKS module"
     dir: "{{.TF_AZURE_DIR}}/aks"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   az:aks:destroy:
     desc: "Destroy Azure AKS module"
     dir: "{{.TF_AZURE_DIR}}/aks"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   # ── Azure Storage ────────────────────────────────────────────
   az:storage:init:
     desc: "Init Azure storage module"
     dir: "{{.TF_AZURE_DIR}}/storage"
     cmds:
-      - terraform init -backend-config=backend/backend.hcl
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
 
   az:storage:plan:
     desc: "Plan Azure storage module"
     dir: "{{.TF_AZURE_DIR}}/storage"
     cmds:
-      - terraform plan
+      - terraform plan -compact-warnings -var-file={{.AZURE_VARS}}
 
   az:storage:apply:
     desc: "Apply Azure storage module"
     dir: "{{.TF_AZURE_DIR}}/storage"
     cmds:
-      - terraform apply -auto-approve
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   az:storage:destroy:
     desc: "Destroy Azure storage module"
     dir: "{{.TF_AZURE_DIR}}/storage"
     cmds:
-      - terraform destroy -auto-approve
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
+
+  # ── Helm Velero (AKS) ────────────────────────────────────────
+  az:helm-velero:init:
+    desc: "Init Velero Helm module for AKS"
+    dir: "{{.TF_AZURE_DIR}}/helm-velero"
+    cmds:
+      - terraform init -backend-config=backend/backend.hcl -reconfigure
+
+  az:helm-velero:plan:
+    desc: "Plan Velero Helm release on AKS"
+    dir: "{{.TF_AZURE_DIR}}/helm-velero"
+    cmds:
+      - terraform plan -compact-warnings -var-file={{.AZURE_VARS}}
+
+  az:helm-velero:apply:
+    desc: "Apply Velero Helm release on AKS"
+    dir: "{{.TF_AZURE_DIR}}/helm-velero"
+    cmds:
+      - terraform apply -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
+
+  az:helm-velero:destroy:
+    desc: "Destroy Velero Helm release on AKS"
+    dir: "{{.TF_AZURE_DIR}}/helm-velero"
+    cmds:
+      - terraform destroy -compact-warnings -auto-approve -var-file={{.AZURE_VARS}}
 
   # ── Azure full stack ─────────────────────────────────────────
   az:init-all:
     desc: "Init all Azure modules in order"
     cmds:
       - task: az:bootstrap:init
-      - task: az:bootstrap-iam:init
       - task: az:vnet:init
       - task: az:storage:init
       - task: az:aks:init
+      - task: az:bootstrap-iam:init
+      - task: az:helm-velero:init
 
   az:apply-all:
     desc: "Apply all Azure modules in order"
     cmds:
       - task: az:bootstrap:apply
-      - task: az:bootstrap-iam:apply
       - task: az:vnet:apply
       - task: az:storage:apply
       - task: az:aks:apply
+      - task: az:bootstrap-iam:apply
+      - task: az:helm-velero:apply
 
   az:destroy-all:
     desc: "Destroy all Azure modules in reverse order"
     cmds:
+      - task: az:helm-velero:destroy
       - task: az:aks:destroy
       - task: az:storage:destroy
       - task: az:vnet:destroy

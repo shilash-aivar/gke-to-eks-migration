@@ -4,7 +4,7 @@ variable "location" {
   default     = "eastus"
 }
 
-variable "resource_group_name" {
+variable "identity_resource_group_name" {
   description = "Resource group for the managed identity"
   type        = string
 }
@@ -36,7 +36,7 @@ variable "velero_storage_account_name" {
   type        = string
 }
 
-variable "velero_storage_resource_group" {
+variable "velero_resource_group_name" {
   description = "Resource group of the Velero storage account"
   type        = string
 }
