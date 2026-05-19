@@ -1,5 +1,4 @@
-# Grafana Loki — monolithic POC (MinIO for object storage)
-# Install: ./scripts/install-loki.sh
+# Grafana Loki — low-cost POC (no Memcached caches, small disks)
 loki:
   auth_enabled: false
   commonConfig:
@@ -14,13 +13,20 @@ loki:
           prefix: loki_index_
           period: 24h
   limits_config:
-    retention_period: 168h
+    retention_period: 72h
 
 minio:
   enabled: true
   persistence:
     enabled: true
-    size: 10Gi
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
 
 deploymentMode: SingleBinary
 
@@ -28,17 +34,30 @@ singleBinary:
   replicas: 1
   persistence:
     enabled: true
-    size: 10Gi
+    size: 5Gi
   resources:
     requests:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 100m
+      memory: 256Mi
     limits:
-      cpu: 1
-      memory: 1Gi
+      cpu: 500m
+      memory: 512Mi
 
 gateway:
   enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+chunksCache:
+  enabled: false
+
+resultsCache:
+  enabled: false
 
 lokiCanary:
   enabled: false

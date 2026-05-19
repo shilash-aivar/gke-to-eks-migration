@@ -2,7 +2,9 @@
 minio:
   persistence:
     storageClass: managed-csi
+    size: 5Gi
 
 singleBinary:
   persistence:
     storageClass: managed-csi
+    size: 5Gi

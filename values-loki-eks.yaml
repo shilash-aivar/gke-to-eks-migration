@@ -1,8 +1,10 @@
 # EKS overrides
 minio:
   persistence:
-    storageClass: gp2
+    storageClass: gp2-encrypted
+    size: 5Gi
 
 singleBinary:
   persistence:
-    storageClass: gp2
+    storageClass: gp2-encrypted
+    size: 5Gi

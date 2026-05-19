@@ -30,8 +30,8 @@ variable "kubernetes_version" {
 
 variable "node_count" {
   type        = number
-  description = "Number of nodes in the default node pool"
-  default     = 2
+  description = "Number of nodes in the default node pool (1 = lowest cost for POC)"
+  default     = 1
 }
 
 variable "vm_size" {

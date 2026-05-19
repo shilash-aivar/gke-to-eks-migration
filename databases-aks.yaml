@@ -67,11 +67,11 @@ spec:
               mountPath: /var/lib/postgresql/data
           resources:
             requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
               cpu: 250m
               memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
@@ -80,7 +80,7 @@ spec:
         storageClassName: managed-csi
         resources:
           requests:
-            storage: 5Gi
+            storage: 2Gi
 
 ---
 apiVersion: v1
@@ -142,11 +142,11 @@ spec:
               mountPath: /var/lib/mysql
           resources:
             requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
               cpu: 250m
               memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
   volumeClaimTemplates:
     - metadata:
         name: mysql-data
@@ -155,4 +155,4 @@ spec:
         storageClassName: managed-csi
         resources:
           requests:
-            storage: 5Gi
+            storage: 2Gi

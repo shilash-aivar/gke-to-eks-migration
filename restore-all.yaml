@@ -1,0 +1,12 @@
+# Restore databases + monitoring from AKS backup (poc-full-migration)
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: poc-full-migration
+  namespace: velero
+spec:
+  backupName: poc-full-migration
+  includedNamespaces:
+    - databases
+    - monitoring
+  restorePVs: true

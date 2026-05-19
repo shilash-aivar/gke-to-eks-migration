@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NS="${NS:-monitoring}"
 PLATFORM="${PLATFORM:-aks}"  # aks | eks
+INSTALL_GRAFANA="${INSTALL_GRAFANA:-false}"
 
 LOKI_VALUES=(-f "${ROOT}/values-loki.yaml")
 case "${PLATFORM}" in
@@ -30,18 +31,22 @@ helm upgrade --install promtail grafana/promtail \
   -f "${ROOT}/values-promtail.yaml" \
   --wait --timeout 5m
 
-echo "==> Installing Grafana"
-helm upgrade --install grafana grafana/grafana \
-  --namespace "${NS}" \
-  -f "${ROOT}/values-grafana.yaml" \
-  --wait --timeout 5m
+if [[ "${INSTALL_GRAFANA}" == "true" ]]; then
+  echo "==> Installing Grafana"
+  helm upgrade --install grafana grafana/grafana \
+    --namespace "${NS}" \
+    -f "${ROOT}/values-grafana.yaml" \
+    --wait --timeout 5m
+else
+  echo "==> Skipping Grafana (set INSTALL_GRAFANA=true to enable UI)"
+fi
 
 echo ""
 kubectl -n "${NS}" get pods
 echo ""
-echo "Grafana (port-forward):"
-echo "  kubectl -n ${NS} port-forward svc/grafana 3000:80"
-echo "  open http://localhost:3000  (admin / poc-admin-change-me)"
-echo ""
-echo "Explore logs in Grafana → Explore → Loki"
-echo "  e.g. {namespace=\"databases\"}"
+if [[ "${INSTALL_GRAFANA}" == "true" ]]; then
+  echo "Grafana: kubectl -n ${NS} port-forward svc/grafana 3000:80"
+fi
+echo "Query Loki via port-forward:"
+echo "  kubectl -n ${NS} port-forward svc/loki-gateway 3100:80"
+echo '  curl -G "http://127.0.0.1:3100/loki/api/v1/query_range" --data-urlencode '"'"'query={namespace="databases"}'"'"''

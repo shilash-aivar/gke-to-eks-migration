@@ -1,4 +1,4 @@
-# Velero on AKS (source) — backs up to AWS S3, same pattern as GKE POC
+# Velero on AKS (source) — backs up to AWS S3 for EKS restore
 image:
   repository: velero/velero
   tag: v1.18.0
@@ -16,7 +16,7 @@ configuration:
   backupStorageLocation:
     - name: default
       provider: aws
-      bucket: migration-bucket-for-aivar-shilash
+      bucket: migration-bucket-aks-eks-velero-poc
       default: true
       config:
         region: us-east-1
@@ -30,6 +30,10 @@ configuration:
   defaultVolumesToFsBackup: true
   uploaderType: kopia
 
+# Create secret before helm install (never commit keys):
+#   kubectl -n velero create secret generic velero-credentials \
+#     --from-file=cloud=aws-credentials
+# Or: AWS_CREDS_FILE=./aws-credentials ./scripts/setup-aks-poc.sh
 credentials:
   useSecret: true
   name: velero-credentials
@@ -61,5 +65,4 @@ resources:
     memory: 256Mi
 
 metrics:
-  enabled: true
-  scrapeInterval: 30s
+  enabled: false

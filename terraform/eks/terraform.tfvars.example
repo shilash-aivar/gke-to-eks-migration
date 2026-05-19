@@ -1,0 +1,22 @@
+# Cost-optimized POC defaults (~$25–40/mo vs ~$100+ with NAT + 2× t3.medium)
+cluster_name        = "eks-velero-poc"
+region              = "us-east-1"
+vpc_id              = "vpc-04bd992237aeae542"
+# subnet_ids          = []  # auto-discover from VPC
+# Target 1.34 (from 1.30: upgrade one minor at a time or ./scripts/upgrade-eks-version.sh 1.34)
+kubernetes_version  = "1.34"
+
+node_instance_types = ["t3.medium"]
+node_desired_size   = 2
+node_min_size       = 1
+node_max_size       = 3
+
+use_spot_instances = false
+cluster_enabled_log_types = []
+
+# Must match tags already on the cluster/VPC in AWS — do not remove keys (SCP denies UntagResource).
+tags = {
+  CreatedBy             = "shailesh.ms@aivar.tech"
+  project               = "aks-to-eks-velero-poc"
+  terraform-aws-modules = "eks"
+}

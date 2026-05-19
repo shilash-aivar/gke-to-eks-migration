@@ -2,7 +2,7 @@ resource_group_name = "rg-aks-velero-poc"
 location            = "eastus"
 cluster_name        = "aks-velero-poc"
 dns_prefix          = "aksveleropoc"
-node_count          = 2
+node_count          = 1
 vm_size             = "Standard_DC2s_v3"
 
 tags = {
